@@ -1,9 +1,34 @@
 import { Router } from "express";
-import { registerUser } from "../controllers/user.controller.js";
+import { loginUser, logoutUser, registerUser,refreshAccessToken } from "../controllers/user.controller.js";
+
+import {upload} from "../middlewares/multer.middleware.js"
+import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
-router.route("/register").get(registerUser);
+router.route("/register").post(
+    upload.fields([
+        {
+            name:"avatar",
+            maxCount:1
+        },
+        {
+            name:"coverImage",
+            maxCount:1
+        }
+    ]),
+    
+    registerUser);
+
+  
+
+    router.route("/login").post(loginUser)
+
+  // verifyJWT is a middelware we have using 
+    //secured route
+    router.route("/logout").post(verifyJWT,logoutUser)
+
+    router.route("/refresh").post(refreshAccessToken)
 
 
 

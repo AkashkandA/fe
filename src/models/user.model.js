@@ -5,34 +5,36 @@ import jwt from "jsonwebtoken";
 
 import bcrypt from "bcrypt";
 
+
+
 const userSchema = new Schema(
     {
 
     username:{
-        type:true,
+        type:String,
         required:true,
         unique:true,
         trim:true,
         index:true
     },
     email:{
-        type:string,
+        type:String,
         required:true,
         unique:true,
         trim:true,
     },
     fullname:{
-        type:string,
+        type:String,
         required:true,
         trim:true,
         index:true
     },
     avatar:{
-        type:string,//cloudinary url
+        type:String,//cloudinary url
         required:true,
     },
     coverImage:{
-        type:string,//cloudinary url
+        type:String,//cloudinary url
     },
     watchHistory:[
         {
@@ -42,12 +44,12 @@ const userSchema = new Schema(
         }
     ],
     password:{
-        type:string,
+        type:String,
         required:[true,'Password is required'],
        
     },
     refreshToken:{
-        type:string
+        type:String
     }
       
     
@@ -62,7 +64,7 @@ const userSchema = new Schema(
 userSchema.pre("save", async function (next) {
     if(!this.isModified("password")) return next();
 
-     this.password =bcrypt.hash(this.password,10)
+     this.password = await bcrypt.hash(this.password,10)
      next()
     
 })
