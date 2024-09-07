@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/fileUpload.js";
+import { subscription } from "../models/subscription.model.js";
 
 
 const generateAccessAndRefreshTokens = async(userId)=>{
@@ -228,7 +229,7 @@ const updateAccountDetails = asyncHandler(async(req,res)=>{
     throw new ApiError(400, "All fields are required")
   }
 
- const user = User.findByIdAndUpdate(req.user?._id,
+ const user = await User.findByIdAndUpdate(req.user?._id,
     {
       $set:{
       fullname:fullname,
@@ -313,6 +314,68 @@ const updateUserAvatar = asyncHandler(async(req,res)=>{
 
  })
 
+ const getCurrentUser = asyncHandler(async(req,res)=>{
+  return res
+  .status(200)
+  .json(new ApiResponse(
+    200,
+    req.user,
+    "User fetched successfully"
+  ))
+ })
+
+ const getUserChannelProfile = asyncHandler(async(req,res)=>{
+   const {username} = req.pqrqms
+
+   if(!username?.trim()){
+    throw new ApiError(400,"username is missing")
+   }
+
+    const Channel = await User.aggregate([
+    {
+
+      $match:{
+        username:username?.toLowerCase()
+      }
+    },
+    {
+      $lookup:{
+        from:"subscriptions",
+        localField:"_id",
+        foreignField:"channel",
+        as:"subscriber"
+      }
+    },
+    {
+      $lookup:{
+        from:"subscriptions",
+        localField:"_id",
+        foreignField:"subscriber",
+        as:"subscribedTo"
+      }
+    },
+    {
+      $addFields:{
+        subscribersCount:{
+          $size:"$subscribers"
+        },
+        channelsSubscribedToCount:{
+          $size:"$subscribedTo"
+        },
+        isSubscrided:{
+          $cond:{
+            if:{$in:[req.user?._id,"$subscribers.subscriber"]},
+            then:true,
+            else:false
+          }
+        }
+        
+
+      }
+    }
+   ])
+ })
+
 
 
 
@@ -326,5 +389,6 @@ export {
     logoutUser,
     refreshAccessToken,
     updateAccountDetails,
-    updateUserAvatar
+    updateUserAvatar,
+    getCurrentUser
  };
