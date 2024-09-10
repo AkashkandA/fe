@@ -4,6 +4,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/fileUpload.js";
 import { subscription } from "../models/subscription.model.js";
+import mongoose from "mongoose";
 
 
 const generateAccessAndRefreshTokens = async(userId)=>{
@@ -146,8 +147,8 @@ const logoutUser = asyncHandler(async(req,res)=>{
   User.findByIdAndUpdate(
     req.user._id,
     {
-      $set:{
-        refreshToken: undefined
+      $unset:{
+        refreshToken: 1
       }
       
     }
@@ -282,6 +283,40 @@ const updateUserAvatar = asyncHandler(async(req,res)=>{
 
  }) 
 
+ const changeCurrentPassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword, confirmPassword } = req.body;
+
+  // Check if the necessary fields are provided
+  if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({ error: 'All fields are required (currentPassword, newPassword, confirmPassword).' });
+  }
+
+  // Find the user by ID
+  const user = await User.findById(req.user?._id);
+
+  if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+  }
+
+  // Check if the current password is correct
+  const isCorrect = await user.isPasswordCorrect(currentPassword);
+  if (!isCorrect) {
+      return res.status(400).json({ error: 'Current password is incorrect.' });
+  }
+
+  // Check if the new password matches the confirmation password
+  if (newPassword !== confirmPassword) {
+      return res.status(400).json({ error: 'New password and confirm password do not match.' });
+  }
+
+
+  user.password = newPassword; 
+  await user.save();
+
+  res.status(200).json({ message: 'Password successfully updated.' });
+});
+
+
  const updateCoverImage = asyncHandler(async(req,res)=>{
     const coverImageLocalPath = req.file?.path
 
@@ -372,9 +407,91 @@ const updateUserAvatar = asyncHandler(async(req,res)=>{
         
 
       }
+    },
+    {
+      $project:{
+        fullname:1,
+        username:1,
+        subscribersCount:1,
+        channelsSubscribedToCount:1,
+        isSubscrided:1,
+        avatar:1,
+        coverImage:1,
+        email:1,
+
+
+      }
     }
    ])
+
+   if(!Channel?.length){
+    throw new ApiError(404, "Channel does not exit")
+   }
+
+   console.log(Channel);
+  return res
+  .status(200)
+  .json(
+    new ApiResponse(200,Channel[0],"user channel fetched successfully")
+  )
+
  })
+
+ const getWatchHistory = asyncHandler(async (req, res) => {
+  const user = await User.aggregate([
+      {
+          $match: {
+              _id: new mongoose.Types.ObjectId(req.user._id),
+          },
+      },
+      {
+          $lookup: {
+              from: "videos",
+              localField: "watchHistory",
+              foreignField: "_id",
+              as: "watchHistory",
+              pipeline: [
+                  {
+                      $lookup: {
+                          from: "users",
+                          localField: "owner",
+                          foreignField: "_id",
+                          as: "owner",
+                          pipeline: [
+                              {
+                                  $project: {
+                                      fullname: 1,
+                                      username: 1,
+                                      avatar: 1,
+                                  },
+                              },
+                          ],
+                      },
+                  },
+                  {
+                      $addFields: {
+                          owner: {
+                              $first: "$owner",
+                          },
+                      },
+                  },
+              ],
+          },
+      },
+  ]);
+
+   return res.status(200)
+   .json(
+    new ApiResponse(
+      200,
+      user[0].watchHistory,
+      "watch  history "
+
+    )
+    );
+});
+
+
 
 
 
@@ -390,5 +507,9 @@ export {
     refreshAccessToken,
     updateAccountDetails,
     updateUserAvatar,
-    getCurrentUser
+    getCurrentUser,
+    getUserChannelProfile,
+    getWatchHistory,
+    changeCurrentPassword,
+    updateCoverImage
  };
